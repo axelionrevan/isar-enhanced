@@ -1,3 +1,31 @@
+## 4.0.3
+
+### Fixes
+
+Apple privacy manifest was added.
+
+## 4.0.2
+
+### Breaking
+
+Sorry, but we had to shift package hosting to https://pub.isar-community.dev
+
+### Fixes
+
+Web should be working again now.
+
+## 4.0.1
+
+Adapted quickstart guide to get started with version 4
+
+## 4.0.0-dev.15
+
+Switch deployment to isar-community
+
+### Enhancements
+
+Change encryption key
+
 ## 4.0.0-dev.14
 
 ⚠️ ISAR V4 IS NOT READY FOR PRODUCTION USE ⚠️

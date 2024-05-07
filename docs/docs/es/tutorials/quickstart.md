@@ -13,8 +13,7 @@ Vamos a ser cortos en palabras para ir inmediatamente al código en esta guía d
 Antes de empezar la parte divertida, necesitamos agregar algunos paquetes al `pubspec.yaml`. Podemos usar pub para hacer el trabajo pesado por nosotros.
 
 ```bash
-flutter pub add isar isar_flutter_libs
-flutter pub add -d isar_generator build_runner
+dart pub add isar:^0.0.0-placeholder isar_flutter_libs:^0.0.0-placeholder --hosted-url=https://pub.isar-community.dev
 ```
 
 ## 2. Anota las clases
@@ -22,11 +21,13 @@ flutter pub add -d isar_generator build_runner
 Anota tus clases de colecciones con `@collection` y elige un campo `Id`.
 
 ```dart
+import 'package:isar/isar.dart';
+
 part 'user.g.dart';
 
 @collection
 class User {
-  Id id = Isar.autoIncrement; // you can also use id = null to auto increment
+  late int id;
 
   String? name;
 
@@ -44,20 +45,14 @@ Ejecuta el siguiente comando para iniciar el `build_runner`:
 dart run build_runner build
 ```
 
-Si estás usando Flutter, puedes usar el siguiente:
-
-```
-flutter pub run build_runner build
-```
-
 ## 4. Abre una instancia Isar
 
 Abre una nueva instalcia Isar y pásale todos los esquemas de tu colección. Opcionalmente puedes especificar un nombre para la instancia y un directorio.
 
 ```dart
 final dir = await getApplicationDocumentsDirectory();
-final isar = await Isar.open(
-  [UserSchema],
+final isar = await Isar.openAsync(
+  schemas: [UserSchema],
   directory: dir.path,
 );
 ```
@@ -69,17 +64,22 @@ Una vez que tu base de datos está abierta, puedes comenzar a usar tus coleccion
 Todas las operaciones CRUD básicas están disponibles a través del `IsarCollection`.
 
 ```dart
-final newUser = User()..name = 'Jane Doe'..age = 36;
+final newUser = User()
+  ..id = isar!.users.autoIncrement()
+  ..name = 'Jane Doe'
+  ..age = 36;
 
-await isar.writeTxn(() async {
-  await isar.users.put(newUser); // insert & update
+await isar!.writeAsync((isar) {
+  return isar.users.put(newUser); // insert & update
 });
 
-final existingUser = await isar.users.get(newUser.id); // get
+final existingUser = isar!.users.get(newUser.id); // get
 
-await isar.writeTxn(() async {
-  await isar.users.delete(existingUser.id!); // delete
-});
+if (existingUser != null) {
+  await isar!.writeAsync((isar) {
+    return isar.users.delete(existingUser.id); // delete
+  });
+}
 ```
 
 ## Otros recursos

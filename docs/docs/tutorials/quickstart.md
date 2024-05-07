@@ -8,13 +8,18 @@ Holy smokes, you're here! Let's get started on using the coolest Flutter databas
 
 We're going to be short on words and quick on code in this quickstart.
 
+:::warning
+⚠️ **<ins>ISAR V4 IS NOT READY FOR PRODUCTION USE</ins>** ⚠️
+
+If you want to use Isar in production, please use the stable version 3.
+:::
+
 ## 1. Add dependencies
 
 Before the fun begins, we need to add a few packages to the `pubspec.yaml`. We can use pub to do the heavy lifting for us.
 
 ```bash
-flutter pub add isar isar_flutter_libs path_provider
-flutter pub add -d isar_generator build_runner
+dart pub add isar:^0.0.0-placeholder isar_flutter_libs:^0.0.0-placeholder --hosted-url=https://pub.isar-community.dev
 ```
 
 ## 2. Annotate classes
@@ -28,7 +33,7 @@ part 'user.g.dart';
 
 @collection
 class User {
-  Id id = Isar.autoIncrement; // you can also use id = null to auto increment
+  late int id;
 
   String? name;
 
@@ -46,23 +51,32 @@ Execute the following command to start the `build_runner`:
 dart run build_runner build
 ```
 
-If you are using Flutter, use the following:
-
-```
-flutter pub run build_runner build
-```
-
 ## 4. Open Isar instance
 
 Open a new Isar instance and pass all of your collection schemas. Optionally you can specify an instance name and directory.
 
 ```dart
-final dir = await getApplicationDocumentsDirectory();
-final isar = await Isar.open(
-  [UserSchema],
-  directory: dir.path,
-);
+if (kIsWeb) {
+  // For web, make sure to initalize before
+  await Isar.initialize();
+  
+  // Use sync methods
+  final isar = Isar.open(
+    schemas: [UserSchema],
+    directory: Isar.sqliteInMemory,
+    engine: IsarEngine.sqlite,
+  );
+} else {
+  final dir = await getApplicationDocumentsDirectory();
+  final isar = await Isar.openAsync(
+    schemas: [UserSchema],
+    directory: dir.path,
+  );
+}
 ```
+:::warning
+⚠️ Please note: For applications targeting web platforms, please be aware that persistent data storage capabilities are **<ins>currently unavailable</ins>**. All data will be stored **<ins>in memory only</ins>**. Additionally, **<ins>asynchronous methods are not yet supported</ins>**. To open the database, use the code provided below.
+:::
 
 ## 5. Write and read
 
@@ -71,17 +85,22 @@ Once your instance is open, you can start using the collections.
 All basic CRUD operations are available via the `IsarCollection`.
 
 ```dart
-final newUser = User()..name = 'Jane Doe'..age = 36;
+final newUser = User()
+  ..id = isar!.users.autoIncrement()
+  ..name = 'Jane Doe'
+  ..age = 36;
 
-await isar.writeTxn(() async {
-  await isar.users.put(newUser); // insert & update
+await isar!.writeAsync((isar) {
+  return isar.users.put(newUser); // insert & update
 });
 
-final existingUser = await isar.users.get(newUser.id); // get
+final existingUser = isar!.users.get(newUser.id); // get
 
-await isar.writeTxn(() async {
-  await isar.users.delete(existingUser.id!); // delete
-});
+if (existingUser != null) {
+  await isar!.writeAsync((isar) {
+    return isar.users.delete(existingUser.id); // delete
+  });
+}
 ```
 
 ## Other resources
