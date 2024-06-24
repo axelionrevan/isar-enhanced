@@ -1,7 +1,9 @@
 use super::{FALSE_BOOL, NULL_BOOL, NULL_DOUBLE, NULL_FLOAT, NULL_INT, NULL_LONG, TRUE_BOOL};
-use crate::core::data_type::DataType;
+use crate::core::{data_type::DataType, error::Result};
 use byteorder::{ByteOrder, LittleEndian};
 use std::cell::Cell;
+
+const HEADER_SIZE: u32 = 3;
 
 pub(crate) struct IsarSerializer {
     buffer: Cell<Vec<u8>>,
@@ -10,15 +12,25 @@ pub(crate) struct IsarSerializer {
 }
 
 impl IsarSerializer {
-    pub fn new(mut buffer: Vec<u8>, offset: u32, static_size: u32) -> Self {
-        let min_buffer_size = (offset + static_size + 3) as usize;
+    pub fn new(offset: u32, static_size: u32) -> Self {
+        let mut buffer = vec![0; (offset + static_size + HEADER_SIZE) as usize];
+        LittleEndian::write_u24(&mut buffer[offset as usize..], static_size);
+        Self {
+            buffer: Cell::new(buffer),
+            offset: offset + HEADER_SIZE,
+            static_size,
+        }
+    }
+
+    pub fn with_buffer(mut buffer: Vec<u8>, offset: u32, static_size: u32) -> Self {
+        let min_buffer_size = (offset + static_size + HEADER_SIZE) as usize;
         if min_buffer_size > buffer.len() {
             buffer.resize(min_buffer_size, 0);
         }
         LittleEndian::write_u24(&mut buffer[offset as usize..], static_size);
         Self {
             buffer: Cell::new(buffer),
-            offset: offset + 3,
+            offset: offset + HEADER_SIZE,
             static_size,
         }
     }
@@ -116,9 +128,72 @@ impl IsarSerializer {
 
         self.buffer
             .get_mut()
-            .resize(buffer_len as usize + value.len() + 3, 0);
+            .resize(buffer_len as usize + value.len() + HEADER_SIZE as usize, 0);
         self.write_u24(dynamic_offset, value.len() as u32);
-        self.write(dynamic_offset + 3, value);
+        self.write(dynamic_offset + HEADER_SIZE, value);
+    }
+
+    pub fn write_list<P>(&mut self, offset: u32, data_type: DataType, length: usize, p: P)
+    where
+        P: Fn(&mut Self, u32, usize) -> (),
+    {
+        let mut nested = self.begin_nested(offset, length as u32 * data_type.static_size() as u32);
+
+        for i in 0..length {
+            let nested_offset = i as u32 * data_type.static_size() as u32;
+
+            p(&mut nested, nested_offset, i as usize);
+        }
+
+        self.end_nested(nested);
+    }
+
+    pub fn try_write_list<P>(
+        &mut self,
+        offset: u32,
+        data_type: DataType,
+        length: usize,
+        p: P,
+    ) -> Result<()>
+    where
+        P: Fn(&mut Self, u32, usize) -> Result<()>,
+    {
+        let mut nested = self.begin_nested(offset, length as u32 * data_type.static_size() as u32);
+
+        for i in 0..length {
+            let nested_offset = i as u32 * data_type.static_size() as u32;
+
+            p(&mut nested, nested_offset, i as usize)?;
+        }
+
+        self.end_nested(nested);
+        Ok(())
+    }
+
+    pub fn write_value_or_null_list<T, P>(
+        &mut self,
+        offset: u32,
+        element_data_type: DataType,
+        values: &[Option<T>],
+        p: P,
+    ) where
+        P: Fn(&mut Self, u32, &T) -> (),
+    {
+        let mut nested = self.begin_nested(
+            offset,
+            values.len() as u32 * element_data_type.static_size() as u32,
+        );
+
+        for (i, value) in values.iter().enumerate() {
+            let nested_offset = i as u32 * element_data_type.static_size() as u32;
+
+            match value {
+                Some(value) => p(&mut nested, nested_offset, value),
+                None => nested.write_null(nested_offset, element_data_type),
+            };
+        }
+
+        self.end_nested(nested);
     }
 
     pub fn update_dynamic(&mut self, offset: u32, value: &[u8]) {
@@ -127,7 +202,7 @@ impl IsarSerializer {
             let existing_dynamic_len = self.read_u24(existing_dynamic_offset);
             if existing_dynamic_len >= value.len() as u32 {
                 self.write_u24(existing_dynamic_offset, value.len() as u32);
-                self.write(existing_dynamic_offset + 3, value);
+                self.write(existing_dynamic_offset + HEADER_SIZE, value);
                 return;
             }
         }
@@ -138,7 +213,7 @@ impl IsarSerializer {
     pub fn begin_nested(&mut self, offset: u32, static_size: u32) -> Self {
         let nested_offset = self.buffer.get_mut().len() as u32;
         self.write_u24_static_checked(offset, nested_offset - self.offset);
-        Self::new(self.buffer.take(), nested_offset, static_size)
+        Self::with_buffer(self.buffer.take(), nested_offset, static_size)
     }
 
     pub fn end_nested(&mut self, writer: Self) {
@@ -178,21 +253,21 @@ mod tests {
 
         #[test]
         fn test_write_single_null_bool() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 1);
+            let mut serializer = IsarSerializer::new(0, 1);
             serializer.write_null(0, DataType::Bool);
             assert_eq!(serializer.finish(), vec![1, 0, 0, 255]);
         }
 
         #[test]
         fn test_write_single_null_byte() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 1);
+            let mut serializer = IsarSerializer::new(0, 1);
             serializer.write_null(0, DataType::Byte);
             assert_eq!(serializer.finish(), vec![1, 0, 0, 0]);
         }
 
         #[test]
         fn test_write_single_null_int() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 4);
+            let mut serializer = IsarSerializer::new(0, 4);
             serializer.write_null(0, DataType::Int);
             assert_eq!(
                 serializer.finish(),
@@ -202,7 +277,7 @@ mod tests {
 
         #[test]
         fn test_write_single_null_float() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 4);
+            let mut serializer = IsarSerializer::new(0, 4);
             serializer.write_null(0, DataType::Float);
             assert_eq!(
                 serializer.finish(),
@@ -212,7 +287,7 @@ mod tests {
 
         #[test]
         fn test_write_single_null_long() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 8);
+            let mut serializer = IsarSerializer::new(0, 8);
             serializer.write_null(0, DataType::Long);
             assert_eq!(
                 serializer.finish(),
@@ -222,7 +297,7 @@ mod tests {
 
         #[test]
         fn test_write_single_null_double() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 8);
+            let mut serializer = IsarSerializer::new(0, 8);
             serializer.write_null(0, DataType::Double);
             assert_eq!(
                 serializer.finish(),
@@ -244,7 +319,7 @@ mod tests {
                 DataType::StringList,
                 DataType::ObjectList,
             ] {
-                let mut serializer = IsarSerializer::new(Vec::new(), 0, 3);
+                let mut serializer = IsarSerializer::new(0, 3);
                 serializer.write_null(0, dynamic_data_type);
                 assert_eq!(serializer.finish(), vec![3, 0, 0, 0, 0, 0]);
             }
@@ -252,11 +327,11 @@ mod tests {
 
         #[test]
         fn test_write_single_bool() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 1);
+            let mut serializer = IsarSerializer::new(0, 1);
             serializer.write_bool(0, false);
             assert_eq!(serializer.finish(), vec![1, 0, 0, 0]);
 
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 1);
+            let mut serializer = IsarSerializer::new(0, 1);
             serializer.write_bool(0, true);
             assert_eq!(serializer.finish(), vec![1, 0, 0, 1]);
         }
@@ -264,7 +339,7 @@ mod tests {
         #[test]
         fn test_write_single_byte() {
             for value in [0, 1, 42, 254, 255] {
-                let mut serializer = IsarSerializer::new(Vec::new(), 0, 1);
+                let mut serializer = IsarSerializer::new(0, 1);
                 serializer.write_byte(0, value);
                 assert_eq!(serializer.finish(), concat!([1, 0, 0], value.to_le_bytes()));
             }
@@ -273,7 +348,7 @@ mod tests {
         #[test]
         fn test_write_single_int() {
             for value in [0, 1, i32::MIN, i32::MAX, i32::MAX - 1] {
-                let mut serializer = IsarSerializer::new(Vec::new(), 0, 4);
+                let mut serializer = IsarSerializer::new(0, 4);
                 serializer.write_int(0, value);
                 assert_eq!(serializer.finish(), concat!([4, 0, 0], value.to_le_bytes()));
             }
@@ -291,7 +366,7 @@ mod tests {
                 f32::MAX,
                 f32::INFINITY,
             ] {
-                let mut serializer = IsarSerializer::new(Vec::new(), 0, 4);
+                let mut serializer = IsarSerializer::new(0, 4);
                 serializer.write_float(0, value);
                 assert_eq!(serializer.finish(), concat!([4, 0, 0], value.to_le_bytes()));
             }
@@ -300,7 +375,7 @@ mod tests {
         #[test]
         fn test_write_single_long() {
             for value in [0, -1, 1, i64::MIN, i64::MIN + 1, i64::MAX, i64::MAX - 1] {
-                let mut serializer = IsarSerializer::new(Vec::new(), 0, 8);
+                let mut serializer = IsarSerializer::new(0, 8);
                 serializer.write_long(0, value);
                 assert_eq!(serializer.finish(), concat!([8, 0, 0], value.to_le_bytes()));
             }
@@ -317,7 +392,7 @@ mod tests {
                 f64::MAX,
                 f64::MAX.next_down(),
             ] {
-                let mut serializer = IsarSerializer::new(Vec::new(), 0, 8);
+                let mut serializer = IsarSerializer::new(0, 8);
                 serializer.write_double(0, value);
                 assert_eq!(serializer.finish(), concat!([8, 0, 0], value.to_le_bytes()));
             }
@@ -325,21 +400,21 @@ mod tests {
 
         #[test]
         fn test_write_single_dynamic() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 3);
+            let mut serializer = IsarSerializer::new(0, 3);
             serializer.write_dynamic(0, "foo".as_bytes());
             assert_eq!(
                 serializer.finish(),
                 concat!([3, 0, 0], [3, 0, 0], [3, 0, 0, b'f', b'o', b'o'])
             );
 
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 3);
+            let mut serializer = IsarSerializer::new(0, 3);
             serializer.write_dynamic(0, "".as_bytes());
             assert_eq!(
                 serializer.finish(),
                 concat!([3, 0, 0], [3, 0, 0], [0, 0, 0])
             );
 
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 3);
+            let mut serializer = IsarSerializer::new(0, 3);
             serializer.write_dynamic(0, LOREM.as_bytes());
             assert_eq!(
                 serializer.finish(),
@@ -351,14 +426,14 @@ mod tests {
                 )
             );
 
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 3);
+            let mut serializer = IsarSerializer::new(0, 3);
             serializer.write_dynamic(0, &[1, 2, 3, 4, 5, 6, 7, 8, 9]);
             assert_eq!(
                 serializer.finish(),
                 concat!([3, 0, 0], [3, 0, 0], [9, 0, 0], [1, 2, 3, 4, 5, 6, 7, 8, 9])
             );
 
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 3);
+            let mut serializer = IsarSerializer::new(0, 3);
             serializer.write_dynamic(0, &vec![0; 2000]);
             assert_eq!(
                 serializer.finish(),
@@ -370,7 +445,7 @@ mod tests {
                 )
             );
 
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 3);
+            let mut serializer = IsarSerializer::new(0, 3);
             let bytes = vec![5; 0xffffff];
             serializer.write_dynamic(0, &bytes);
 
@@ -389,12 +464,12 @@ mod tests {
 
         #[test]
         fn test_write_multiple_null_bool() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 2);
+            let mut serializer = IsarSerializer::new(0, 2);
             serializer.write_null(0, DataType::Bool);
             serializer.write_null(1, DataType::Bool);
             assert_eq!(serializer.finish(), vec![2, 0, 0, 255, 255]);
 
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 10);
+            let mut serializer = IsarSerializer::new(0, 10);
             for offset in 0..10 {
                 serializer.write_null(offset, DataType::Bool);
             }
@@ -403,12 +478,12 @@ mod tests {
 
         #[test]
         fn test_write_multiple_null_byte() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 2);
+            let mut serializer = IsarSerializer::new(0, 2);
             serializer.write_null(0, DataType::Byte);
             serializer.write_null(1, DataType::Byte);
             assert_eq!(serializer.finish(), vec![2, 0, 0, 0, 0]);
 
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 10);
+            let mut serializer = IsarSerializer::new(0, 10);
             for offset in 0..10 {
                 serializer.write_null(offset, DataType::Byte);
             }
@@ -417,7 +492,7 @@ mod tests {
 
         #[test]
         fn test_write_multiple_null_int() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 8);
+            let mut serializer = IsarSerializer::new(0, 8);
             serializer.write_null(0, DataType::Int);
             serializer.write_null(4, DataType::Int);
             assert_eq!(
@@ -425,7 +500,7 @@ mod tests {
                 concat!([8, 0, 0], NULL_INT.to_le_bytes(), NULL_INT.to_le_bytes())
             );
 
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 40);
+            let mut serializer = IsarSerializer::new(0, 40);
             for offset in 0..10 {
                 serializer.write_null(offset * 4, DataType::Int);
             }
@@ -449,7 +524,7 @@ mod tests {
 
         #[test]
         fn test_write_multiple_null_float() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 8);
+            let mut serializer = IsarSerializer::new(0, 8);
             serializer.write_null(0, DataType::Float);
             serializer.write_null(4, DataType::Float);
             assert_eq!(
@@ -461,7 +536,7 @@ mod tests {
                 )
             );
 
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 40);
+            let mut serializer = IsarSerializer::new(0, 40);
             for offset in 0..10 {
                 serializer.write_null(offset * 4, DataType::Float);
             }
@@ -485,7 +560,7 @@ mod tests {
 
         #[test]
         fn test_write_multiple_null_long() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 16);
+            let mut serializer = IsarSerializer::new(0, 16);
             serializer.write_null(0, DataType::Long);
             serializer.write_null(8, DataType::Long);
             assert_eq!(
@@ -493,7 +568,7 @@ mod tests {
                 concat!([16, 0, 0], NULL_LONG.to_le_bytes(), NULL_LONG.to_le_bytes())
             );
 
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 80);
+            let mut serializer = IsarSerializer::new(0, 80);
             for offset in 0..10 {
                 serializer.write_null(offset * 8, DataType::Long);
             }
@@ -517,7 +592,7 @@ mod tests {
 
         #[test]
         fn test_write_multiple_null_double() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 16);
+            let mut serializer = IsarSerializer::new(0, 16);
             serializer.write_null(0, DataType::Double);
             serializer.write_null(8, DataType::Double);
             assert_eq!(
@@ -529,7 +604,7 @@ mod tests {
                 )
             );
 
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 80);
+            let mut serializer = IsarSerializer::new(0, 80);
             for offset in 0..10 {
                 serializer.write_null(offset * 8, DataType::Double);
             }
@@ -566,7 +641,7 @@ mod tests {
                 DataType::ObjectList,
             ] {
                 for count in [2, 10, 100] {
-                    let mut serializer = IsarSerializer::new(Vec::new(), 0, count * 3);
+                    let mut serializer = IsarSerializer::new(0, count * 3);
                     let mut expected = (count * 3).to_le_bytes()[..3].to_vec();
 
                     for i in 0..count {
@@ -581,13 +656,13 @@ mod tests {
 
         #[test]
         fn test_write_multiple_bool() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 3);
+            let mut serializer = IsarSerializer::new(0, 3);
             serializer.write_null(0, DataType::Bool);
             serializer.write_bool(1, false);
             serializer.write_bool(2, true);
             assert_eq!(serializer.finish(), concat!([3, 0, 0], [255, 0, 1]));
 
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 6);
+            let mut serializer = IsarSerializer::new(0, 6);
             serializer.write_bool(0, false);
             serializer.write_bool(1, false);
             serializer.write_null(2, DataType::Bool);
@@ -602,13 +677,13 @@ mod tests {
 
         #[test]
         fn test_write_multiple_byte() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 3);
+            let mut serializer = IsarSerializer::new(0, 3);
             serializer.write_byte(0, 0);
             serializer.write_byte(1, 10);
             serializer.write_byte(2, 42);
             assert_eq!(serializer.finish(), concat!([3, 0, 0], [0, 10, 0x2a]));
 
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 5);
+            let mut serializer = IsarSerializer::new(0, 5);
             serializer.write_byte(0, 0);
             serializer.write_byte(1, 10);
             serializer.write_byte(2, 42);
@@ -622,7 +697,7 @@ mod tests {
 
         #[test]
         fn test_write_multiple_int() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 12);
+            let mut serializer = IsarSerializer::new(0, 12);
             serializer.write_int(0, 0);
             serializer.write_int(4, -20);
             serializer.write_int(8, 42);
@@ -636,7 +711,7 @@ mod tests {
                 )
             );
 
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 20);
+            let mut serializer = IsarSerializer::new(0, 20);
             serializer.write_int(0, i32::MIN);
             serializer.write_int(4, -1);
             serializer.write_int(8, 100);
@@ -657,7 +732,7 @@ mod tests {
 
         #[test]
         fn test_write_multiple_float() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 12);
+            let mut serializer = IsarSerializer::new(0, 12);
             serializer.write_float(0, 0f32);
             serializer.write_float(4, -20f32);
             serializer.write_float(8, 42f32);
@@ -671,7 +746,7 @@ mod tests {
                 )
             );
 
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 20);
+            let mut serializer = IsarSerializer::new(0, 20);
             serializer.write_float(0, f32::MIN);
             serializer.write_float(4, f32::MIN.next_up());
             serializer.write_float(8, -1f32);
@@ -692,7 +767,7 @@ mod tests {
 
         #[test]
         fn test_write_multiple_long() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 24);
+            let mut serializer = IsarSerializer::new(0, 24);
             serializer.write_long(0, 0);
             serializer.write_long(8, -20);
             serializer.write_long(16, 42);
@@ -706,7 +781,7 @@ mod tests {
                 )
             );
 
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 40);
+            let mut serializer = IsarSerializer::new(0, 40);
             serializer.write_long(0, i64::MIN);
             serializer.write_long(8, i64::MIN + 1);
             serializer.write_long(16, -1);
@@ -727,7 +802,7 @@ mod tests {
 
         #[test]
         fn test_write_multiple_double() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 24);
+            let mut serializer = IsarSerializer::new(0, 24);
             serializer.write_double(0, 0.0);
             serializer.write_double(8, -20.0);
             serializer.write_double(16, 42.0);
@@ -741,7 +816,7 @@ mod tests {
                 )
             );
 
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 40);
+            let mut serializer = IsarSerializer::new(0, 40);
             serializer.write_double(0, f64::MIN);
             serializer.write_double(8, f64::MIN.next_up());
             serializer.write_double(16, -1.0);
@@ -762,7 +837,7 @@ mod tests {
 
         #[test]
         fn test_write_multiple_dynamic() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 6);
+            let mut serializer = IsarSerializer::new(0, 6);
             serializer.write_dynamic(0, "foo".as_bytes());
             serializer.write_dynamic(3, "bar".as_bytes());
             assert_eq!(
@@ -776,7 +851,7 @@ mod tests {
                 )
             );
 
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 6);
+            let mut serializer = IsarSerializer::new(0, 6);
             serializer.write_dynamic(0, &[]);
             serializer.write_dynamic(3, &[]);
             assert_eq!(
@@ -784,7 +859,7 @@ mod tests {
                 concat!([6, 0, 0], [6, 0, 0], [9, 0, 0], [0, 0, 0], [0, 0, 0])
             );
 
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 12);
+            let mut serializer = IsarSerializer::new(0, 12);
             serializer.write_dynamic(0, LOREM[..100].as_bytes());
             serializer.write_dynamic(3, LOREM[100..200].as_bytes());
             serializer.write_dynamic(6, LOREM[200..300].as_bytes());
@@ -812,7 +887,7 @@ mod tests {
                 )
             );
 
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 15);
+            let mut serializer = IsarSerializer::new(0, 15);
             serializer.write_dynamic(0, &[1, 2, 3, 4, 5, 6, 7, 8, 9]);
             serializer.write_dynamic(3, &[0, 2, 4]);
             serializer.write_dynamic(6, &[1, 2, 3, 4, 5, 6, 7]);
@@ -840,7 +915,7 @@ mod tests {
                 )
             );
 
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 9);
+            let mut serializer = IsarSerializer::new(0, 9);
             serializer.write_dynamic(0, &[1; 10]);
             serializer.write_dynamic(3, &[2; 20]);
             serializer.write_dynamic(6, &[3; 30]);
@@ -868,7 +943,7 @@ mod tests {
 
         #[test]
         fn test_write_null() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 8);
+            let mut serializer = IsarSerializer::new(0, 8);
             serializer.write_null(0, DataType::Bool);
             serializer.write_null(1, DataType::Int);
             serializer.write_null(5, DataType::String);
@@ -882,7 +957,7 @@ mod tests {
                 )
             );
 
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 22);
+            let mut serializer = IsarSerializer::new(0, 22);
             serializer.write_null(0, DataType::Bool);
             serializer.write_null(1, DataType::Int);
             serializer.write_null(5, DataType::Int);
@@ -905,7 +980,7 @@ mod tests {
 
         #[test]
         fn test_write_primitives() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 19);
+            let mut serializer = IsarSerializer::new(0, 19);
             serializer.write_bool(0, true);
             serializer.write_int(1, 123456);
             serializer.write_null(5, DataType::Bool);
@@ -925,7 +1000,7 @@ mod tests {
                 )
             );
 
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 31);
+            let mut serializer = IsarSerializer::new(0, 31);
             serializer.write_long(0, i64::MAX);
             serializer.write_long(8, i64::MIN);
             serializer.write_long(16, 0);
@@ -950,7 +1025,7 @@ mod tests {
 
         #[test]
         fn test_write_any_type() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 28);
+            let mut serializer = IsarSerializer::new(0, 28);
             serializer.write_int(0, 65535);
             serializer.write_bool(4, false);
             serializer.write_bool(5, true);
@@ -980,7 +1055,7 @@ mod tests {
                 )
             );
 
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 18);
+            let mut serializer = IsarSerializer::new(0, 18);
             serializer.write_dynamic(0, &[0x20, 10, 0, 0, 50, 255]);
             serializer.write_double(3, 5.25);
             serializer.write_dynamic(11, &[]);
@@ -1006,7 +1081,7 @@ mod tests {
 
         #[test]
         fn test_nested_write_primitive() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 3);
+            let mut serializer = IsarSerializer::new(0, 3);
             let mut nested_serializer = serializer.begin_nested(0, 14);
             nested_serializer.write_null(0, DataType::Int);
             nested_serializer.write_int(4, 128);
@@ -1029,7 +1104,7 @@ mod tests {
                 )
             );
 
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 14);
+            let mut serializer = IsarSerializer::new(0, 14);
             serializer.write_int(0, 32);
 
             let mut nested_serializer = serializer.begin_nested(4, 20);
@@ -1075,7 +1150,7 @@ mod tests {
                 )
             );
 
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 16);
+            let mut serializer = IsarSerializer::new(0, 16);
             serializer.write_dynamic(0, &[1, 2, 3, 10, 11, 12]);
 
             let mut nested_serializer = serializer.begin_nested(3, 11);
@@ -1145,7 +1220,7 @@ mod tests {
 
         #[test]
         fn test_deeply_nested() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 21);
+            let mut serializer = IsarSerializer::new(0, 21);
             serializer.write_int(0, 32);
 
             let mut nested_serializer = serializer.begin_nested(4, 8);
@@ -1221,7 +1296,7 @@ mod tests {
             expected = "Tried to write 1 byte(s) at offset 3 into static section of 3 byte(s)"
         )]
         fn test_write_bool_outside_bounds_1() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 3);
+            let mut serializer = IsarSerializer::new(0, 3);
             serializer.write_dynamic(0, &[0, 1, 2, 3, 4]);
             serializer.write_bool(3, true);
         }
@@ -1231,7 +1306,7 @@ mod tests {
             expected = "Tried to write 1 byte(s) at offset 10 into static section of 6 byte(s)"
         )]
         fn test_write_bool_outside_bounds_2() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 6);
+            let mut serializer = IsarSerializer::new(0, 6);
             serializer.write_dynamic(0, &[0, 1, 2, 3, 4]);
             serializer.write_dynamic(3, &[0, 0, 0]);
             serializer.write_bool(10, false);
@@ -1242,7 +1317,7 @@ mod tests {
             expected = "Tried to write 1 byte(s) at offset 3 into static section of 3 byte(s)"
         )]
         fn test_write_byte_outside_bounds_1() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 3);
+            let mut serializer = IsarSerializer::new(0, 3);
             serializer.write_dynamic(0, &[0, 1, 2, 3, 4]);
             serializer.write_byte(3, 1);
         }
@@ -1252,7 +1327,7 @@ mod tests {
             expected = "Tried to write 1 byte(s) at offset 10 into static section of 6 byte(s)"
         )]
         fn test_write_byte_outside_bounds_2() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 6);
+            let mut serializer = IsarSerializer::new(0, 6);
             serializer.write_dynamic(0, &[0, 1, 2, 3, 4]);
             serializer.write_dynamic(3, &[0, 0, 0]);
             serializer.write_byte(10, 42);
@@ -1263,7 +1338,7 @@ mod tests {
             expected = "Tried to write 4 byte(s) at offset 3 into static section of 3 byte(s)"
         )]
         fn test_write_int_outside_bounds_1() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 3);
+            let mut serializer = IsarSerializer::new(0, 3);
             serializer.write_dynamic(0, &[0, 1, 2, 3, 4]);
             serializer.write_int(3, 50);
         }
@@ -1273,7 +1348,7 @@ mod tests {
             expected = "Tried to write 4 byte(s) at offset 10 into static section of 6 byte(s)"
         )]
         fn test_write_int_outside_bounds_2() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 6);
+            let mut serializer = IsarSerializer::new(0, 6);
             serializer.write_dynamic(0, &[0, 1, 2, 3, 4]);
             serializer.write_dynamic(3, &[0, 0, 0]);
             serializer.write_int(10, -50);
@@ -1284,7 +1359,7 @@ mod tests {
             expected = "Tried to write 4 byte(s) at offset 3 into static section of 3 byte(s)"
         )]
         fn test_write_float_outside_bounds_1() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 3);
+            let mut serializer = IsarSerializer::new(0, 3);
             serializer.write_dynamic(0, &[0, 1, 2, 3, 4]);
             serializer.write_float(3, -12_345.679);
         }
@@ -1294,7 +1369,7 @@ mod tests {
             expected = "Tried to write 4 byte(s) at offset 10 into static section of 6 byte(s)"
         )]
         fn test_write_float_outside_bounds_2() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 6);
+            let mut serializer = IsarSerializer::new(0, 6);
             serializer.write_dynamic(0, &[0, 1, 2, 3, 4]);
             serializer.write_dynamic(3, &[0, 0, 0]);
             serializer.write_float(10, 5.5);
@@ -1305,7 +1380,7 @@ mod tests {
             expected = "Tried to write 8 byte(s) at offset 1 into static section of 3 byte(s)"
         )]
         fn test_write_long_outside_bounds_1() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 3);
+            let mut serializer = IsarSerializer::new(0, 3);
             serializer.write_dynamic(0, &[0, 1, 2, 3, 4, 4, 4, 5, 5, 5, 5, 5]);
             serializer.write_long(1, 128);
         }
@@ -1315,7 +1390,7 @@ mod tests {
             expected = "Tried to write 8 byte(s) at offset 20 into static section of 6 byte(s)"
         )]
         fn test_write_long_outside_bounds_2() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 6);
+            let mut serializer = IsarSerializer::new(0, 6);
             serializer.write_dynamic(0, &[0, 1, 2, 3, 4]);
             serializer.write_dynamic(3, &[0; 30]);
             serializer.write_long(20, 1024);
@@ -1326,7 +1401,7 @@ mod tests {
             expected = "Tried to write 8 byte(s) at offset 1 into static section of 3 byte(s)"
         )]
         fn test_write_double_outside_bounds_1() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 3);
+            let mut serializer = IsarSerializer::new(0, 3);
             serializer.write_dynamic(0, &[0, 1, 2, 3, 4, 4, 4, 5, 5, 5, 5, 5]);
             serializer.write_double(1, 10.123);
         }
@@ -1336,7 +1411,7 @@ mod tests {
             expected = "Tried to write 8 byte(s) at offset 20 into static section of 6 byte(s)"
         )]
         fn test_write_double_outside_bounds_2() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 6);
+            let mut serializer = IsarSerializer::new(0, 6);
             serializer.write_dynamic(0, &[0, 1, 2, 3, 4]);
             serializer.write_dynamic(3, &[0; 30]);
             serializer.write_double(20, -0.01);
@@ -1347,7 +1422,7 @@ mod tests {
             expected = "Tried to write 3 byte(s) at offset 3 into static section of 3 byte(s)"
         )]
         fn test_write_dynamic_outside_bounds_1() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 3);
+            let mut serializer = IsarSerializer::new(0, 3);
             serializer.write_dynamic(0, &[0, 1, 2, 3, 4, 4, 4, 5, 5, 5, 5, 5]);
             serializer.write_dynamic(3, &[0]);
         }
@@ -1357,7 +1432,7 @@ mod tests {
             expected = "Tried to write 3 byte(s) at offset 4 into static section of 6 byte(s)"
         )]
         fn test_write_dynamic_outside_bounds_2() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 6);
+            let mut serializer = IsarSerializer::new(0, 6);
             serializer.write_dynamic(0, &[0, 1, 2, 3, 4]);
             serializer.write_dynamic(3, &[0; 30]);
             serializer.write_dynamic(4, &[1, 2, 3, 0, 5]);
@@ -1368,7 +1443,7 @@ mod tests {
             expected = "Tried to write 3 byte(s) at offset 1 into static section of 3 byte(s)"
         )]
         fn test_write_nested_outside_bounds_1() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 3);
+            let mut serializer = IsarSerializer::new(0, 3);
             serializer.write_dynamic(0, &[0, 1, 2, 3, 4, 4, 4, 5, 5, 5, 5, 5]);
             serializer.begin_nested(1, 1);
         }
@@ -1378,7 +1453,7 @@ mod tests {
             expected = "Tried to write 3 byte(s) at offset 4 into static section of 6 byte(s)"
         )]
         fn test_write_nested_outside_bounds_2() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 6);
+            let mut serializer = IsarSerializer::new(0, 6);
             serializer.write_dynamic(0, &[0, 1, 2, 3, 4]);
             serializer.write_dynamic(3, &[0; 30]);
             serializer.begin_nested(4, 5);
@@ -1389,7 +1464,7 @@ mod tests {
             expected = "Tried to write 1 byte(s) at offset 3 into static section of 3 byte(s)"
         )]
         fn test_write_null_bool_outside_bounds() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 3);
+            let mut serializer = IsarSerializer::new(0, 3);
             serializer.write_dynamic(0, &[0, 1, 2, 3, 4, 4, 4, 5, 5, 5, 5, 5]);
             serializer.write_null(3, DataType::Bool);
         }
@@ -1399,7 +1474,7 @@ mod tests {
             expected = "Tried to write 1 byte(s) at offset 3 into static section of 3 byte(s)"
         )]
         fn test_write_null_byte_outside_bounds() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 3);
+            let mut serializer = IsarSerializer::new(0, 3);
             serializer.write_dynamic(0, &[0, 1, 2, 3, 4, 4, 4, 5, 5, 5, 5, 5]);
             serializer.write_null(3, DataType::Byte);
         }
@@ -1409,7 +1484,7 @@ mod tests {
             expected = "Tried to write 4 byte(s) at offset 0 into static section of 3 byte(s)"
         )]
         fn test_write_null_int_outside_bounds() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 3);
+            let mut serializer = IsarSerializer::new(0, 3);
             serializer.write_dynamic(0, &[0, 1, 2, 3, 4, 4, 4, 5, 5, 5, 5, 5]);
             serializer.write_null(0, DataType::Int);
         }
@@ -1419,7 +1494,7 @@ mod tests {
             expected = "Tried to write 4 byte(s) at offset 2 into static section of 3 byte(s)"
         )]
         fn test_write_null_float_outside_bounds() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 3);
+            let mut serializer = IsarSerializer::new(0, 3);
             serializer.write_dynamic(0, &[0, 1, 2, 3, 4, 4, 4, 5, 5, 5, 5, 5]);
             serializer.write_null(2, DataType::Float);
         }
@@ -1429,7 +1504,7 @@ mod tests {
             expected = "Tried to write 8 byte(s) at offset 4 into static section of 3 byte(s)"
         )]
         fn test_write_null_long_outside_bounds() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 3);
+            let mut serializer = IsarSerializer::new(0, 3);
             serializer.write_dynamic(0, &[0, 1, 2, 3, 4, 4, 4, 5, 5, 5, 5, 5]);
             serializer.write_null(4, DataType::Long);
         }
@@ -1439,7 +1514,7 @@ mod tests {
             expected = "Tried to write 8 byte(s) at offset 0 into static section of 3 byte(s)"
         )]
         fn test_write_null_double_outside_bounds() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 3);
+            let mut serializer = IsarSerializer::new(0, 3);
             serializer.write_dynamic(0, &[0, 1, 2, 3, 4, 4, 4, 5, 5, 5, 5, 5]);
             serializer.write_null(0, DataType::Double);
         }
@@ -1449,7 +1524,7 @@ mod tests {
             expected = "Tried to write 3 byte(s) at offset 4 into static section of 3 byte(s)"
         )]
         fn test_write_null_dynamic_outside_bounds() {
-            let mut serializer = IsarSerializer::new(Vec::new(), 0, 3);
+            let mut serializer = IsarSerializer::new(0, 3);
             serializer.write_dynamic(0, &[0, 1, 2, 3, 4, 4, 4, 5, 5, 5, 5, 5]);
             serializer.write_null(4, DataType::String);
         }

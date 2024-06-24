@@ -215,7 +215,7 @@ impl NativeCollection {
         if let Some((_, old_object)) = cursor.move_to(&id.to_id_bytes())? {
             let mut buffer = txn.take_buffer();
             buffer.extend_from_slice(&old_object);
-            let mut new_object = IsarSerializer::new(buffer, 0, self.static_size);
+            let mut new_object = IsarSerializer::with_buffer(buffer, 0, self.static_size);
 
             for (property_index, value) in updates {
                 self.write_value(&mut new_object, *property_index as u16, value.as_ref())?;
@@ -266,7 +266,7 @@ impl NativeCollection {
             }
             Ok(())
         } else {
-            return Err(IsarError::IllegalArgument {});
+            Err(IsarError::IllegalArgument {})
         }
     }
 
@@ -278,6 +278,31 @@ impl NativeCollection {
         for index in &self.indexes {
             index.clear(txn)?;
         }
+        Ok(())
+    }
+
+    pub fn rebuild_indexes(&self, txn: &NativeTxn) -> Result<()> {
+        let db = self.db.ok_or(IsarError::UnsupportedOperation {})?;
+
+        for index in &self.indexes {
+            index.clear(txn)?;
+        }
+
+        let mut cursor = txn.get_cursor(db)?;
+        while let Some((id_bytes, bytes)) = cursor.move_to_next()? {
+            let object = IsarDeserializer::from_bytes(bytes);
+            let id = id_bytes.to_id();
+
+            for index in &self.indexes {
+                let buffer = index.create_for_object(txn, id, object, txn.take_buffer(), |_| {
+                    // Ignore delete callback since we are only re-building the index,
+                    // and not adding a new entry for a new object.
+                    Ok(())
+                })?;
+                txn.put_buffer(buffer);
+            }
+        }
+
         Ok(())
     }
 }
