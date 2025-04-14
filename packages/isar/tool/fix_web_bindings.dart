@@ -1,6 +1,6 @@
 import 'dart:io';
 
-const path = 'lib/src/web/bindings.dart';
+const path = 'lib/source/web/bindings.dart';
 
 void main() {
   var content = File(path).readAsStringSync();
@@ -8,8 +8,8 @@ void main() {
   content = content.replaceFirst(
     "import 'dart:ffi' as ffi;",
     '''
-import 'package:isar/src/web/ffi.dart' as ffi;
-import 'package:isar/src/web/interop.dart';
+import 'package:isar/source/web/ffi.dart' as ffi;
+import 'package:isar/source/web/interop.dart';
 
 extension IsarBindingsX on JSIsar {
 ''',

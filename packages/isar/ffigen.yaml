@@ -1,5 +1,5 @@
 name: IsarCoreBindings
-output: "lib/src/native/bindings.dart"
+output: "lib/source/native/bindings.dart"
 headers:
   entry-points:
     - "isar-dart.h"

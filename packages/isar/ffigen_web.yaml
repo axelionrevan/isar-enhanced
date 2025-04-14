@@ -1,5 +1,5 @@
 name: IsarCoreBindings
-output: "lib/src/web/bindings.dart"
+output: "lib/source/web/bindings.dart"
 ffi-native:
 headers:
   entry-points:
