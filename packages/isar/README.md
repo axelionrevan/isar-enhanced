@@ -1,3 +1,29 @@
+# Isar Enhanced
+
+I improved some things that I think are important,
+
+1. Web persistance
+2. Isar Inspector Cross Platforrm Local
+
+Tested
+
+1. Web
+2. Android 14
+3. Linux ubuntu 25
+
+besides that I can't test there is no device
+
+I am not fully open source isar remade because the company I work for will use the isar remade library for the database.
+
+so I only implement what I think is important, because if I open source everything I can't, and there are also many modifications that have been replaced from the original source
+
+
+and my account is also gone so this is the last update.
+
+Sorry can only contribute here
+
+
+
 <p align="center">
   <a href="https://isar.dev">
     <img source="https://raw.githubusercontent.com/isar/isar/main/.github/assets/isar.svg?sanitize=true" height="128">
