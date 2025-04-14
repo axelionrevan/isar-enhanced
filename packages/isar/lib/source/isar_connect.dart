@@ -36,9 +36,7 @@ abstract class _IsarConnect {
     for (final handler in _handlers.entries) {
       registerExtension(handler.key.method, (method, parameters) async {
         try {
-          final args = parameters.containsKey('args')
-              ? jsonDecode(parameters['args']!) as Map<String, dynamic>
-              : <String, dynamic>{};
+          final args = parameters.containsKey('args') ? jsonDecode(parameters['args']!) as Map<String, dynamic> : <String, dynamic>{};
           final result = <String, dynamic>{'result': await handler.value(args)};
           return ServiceExtensionResponse.result(jsonEncode(result));
         } catch (e) {
@@ -52,7 +50,7 @@ abstract class _IsarConnect {
   }
 
   static void _printConnection() {
-    Service.getInfo().then((ServiceProtocolInfo info) {
+    Service.getInfo().then((ServiceProtocolInfo info) async {
       final serviceUri = info.serverUri;
       if (serviceUri == null) {
         return;
@@ -65,7 +63,31 @@ abstract class _IsarConnect {
       if (path.endsWith('=')) {
         path = path.substring(0, path.length - 1);
       }
-      final url = ' https://inspect.isar.dev/${Isar.version}/#/$port$path ';
+      // final url = ' https://inspect.isar.dev/${Isar.version}/#/$port$path ';
+      final url = '  ws://127.0.0.1:${port}/${path}=/ws  ';
+
+      String? ipNetworkLocal = await () async {
+        final interfaces = await NetworkInterface.list(type: InternetAddressType.IPv4, includeLinkLocal: true);
+
+        try {
+          NetworkInterface interface = interfaces.singleWhere((element) => RegExp("^wl", caseSensitive: false).hasMatch(element.name));
+          return interface.addresses.first.address;
+        } catch (ex) {
+          try {
+            NetworkInterface interface = interfaces.firstWhere((element) => element.name == "eth0");
+            return interface.addresses.first.address;
+          } catch (e) {
+            // Try any other connection next
+            try {
+              NetworkInterface interface = interfaces.firstWhere((element) => !(["wlan0"].contains(element.name)));
+              return interface.addresses.first.address;
+            } catch (ex) {
+              return null;
+            }
+          }
+        }
+      }();
+
       String line(String text, String fill) {
         final fillCount = url.length - text.length;
         final left = List.filled(fillCount ~/ 2, fill);
@@ -80,6 +102,9 @@ abstract class _IsarConnect {
       print('║${line('Inspector while this build is running.', ' ')}║');
       print('╟${line('', '─')}╢');
       print('║$url║');
+      if (ipNetworkLocal != null) {
+        print('║  ws://${ipNetworkLocal}:${port}/${path}=/ws ╢');
+      }
       print('╚${line('', '═')}╝');
     });
   }
@@ -193,13 +218,12 @@ abstract class _IsarConnect {
     final colIndex = isar.schemas.indexWhere((e) => e.name == cEdit.collection);
     final colSchema = isar.schemas[colIndex];
     final idIndex = colSchema.getPropertyIndex(colSchema.idName!);
-    final query =
-        isar.collectionByIndex<dynamic, dynamic>(colIndex).buildQuery<dynamic>(
-              filter: EqualCondition(
-                property: idIndex == -1 ? 0 : idIndex,
-                value: cEdit.id,
-              ),
-            );
+    final query = isar.collectionByIndex<dynamic, dynamic>(colIndex).buildQuery<dynamic>(
+          filter: EqualCondition(
+            property: idIndex == -1 ? 0 : idIndex,
+            value: cEdit.id,
+          ),
+        );
 
     final objects = query.exportJson();
     if (objects.isNotEmpty) {
@@ -215,9 +239,7 @@ abstract class _IsarConnect {
       }
 
       await isar.writeAsync(
-        (isar) => isar
-            .collectionByIndex<dynamic, dynamic>(colIndex)
-            .importJson(objects),
+        (isar) => isar.collectionByIndex<dynamic, dynamic>(colIndex).importJson(objects),
       );
     }
   }

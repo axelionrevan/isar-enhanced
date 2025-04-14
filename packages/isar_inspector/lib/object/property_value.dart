@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+// import 'package:google_fonts/google_fonts.dart';
 import 'package:isar/isar.dart';
 
 class PropertyValue extends StatelessWidget {
@@ -48,10 +48,10 @@ class NullValue extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       'null',
-      style: GoogleFonts.jetBrainsMono(
-        color: Colors.grey,
-        fontWeight: FontWeight.bold,
-      ),
+      // style: GoogleFonts.jetBrainsMono(
+      //   color: Colors.grey,
+      //   fontWeight: FontWeight.bold,
+      // ),
     );
   }
 }
@@ -115,10 +115,10 @@ class _EnumValue extends StatelessWidget {
             },
       child: Text(
         enumName,
-        style: GoogleFonts.jetBrainsMono(
-          color: enumName != 'null' ? Colors.yellow : Colors.grey,
-          fontWeight: FontWeight.bold,
-        ),
+        // style: GoogleFonts.jetBrainsMono(
+        //   color: enumName != 'null' ? Colors.yellow : Colors.grey,
+        //   fontWeight: FontWeight.bold,
+        // ),
       ),
     );
   }
@@ -170,10 +170,10 @@ class _BoolValue extends StatelessWidget {
             },
       child: Text(
         '$value',
-        style: GoogleFonts.jetBrainsMono(
-          color: value != null ? Colors.orange : Colors.grey,
-          fontWeight: FontWeight.bold,
-        ),
+        // style: GoogleFonts.jetBrainsMono(
+        //   color: value != null ? Colors.orange : Colors.grey,
+        //   fontWeight: FontWeight.bold,
+        // ),
       ),
     );
   }
@@ -208,17 +208,17 @@ class _NumValueState extends State<_NumValue> {
       },
       decoration: InputDecoration.collapsed(
         hintText: 'null',
-        hintStyle: GoogleFonts.jetBrainsMono(
-          color: Colors.grey,
-          fontWeight: FontWeight.bold,
-          fontSize: 14,
-        ),
+        // hintStyle: GoogleFonts.jetBrainsMono(
+        //   color: Colors.grey,
+        //   fontWeight: FontWeight.bold,
+        //   fontSize: 14,
+        // ),
       ),
-      style: GoogleFonts.jetBrainsMono(
-        color: Colors.blue,
-        fontWeight: FontWeight.bold,
-        fontSize: 14,
-      ),
+      // style: GoogleFonts.jetBrainsMono(
+      //   color: Colors.blue,
+      //   fontWeight: FontWeight.bold,
+      //   fontSize: 14,
+      // ),
     );
   }
 }
@@ -252,10 +252,10 @@ class _DateValue extends StatelessWidget {
             },
       child: Text(
         date?.toIso8601String() ?? 'null',
-        style: GoogleFonts.jetBrainsMono(
-          color: date != null ? Colors.blue : Colors.grey,
-          fontWeight: FontWeight.bold,
-        ),
+        // style: GoogleFonts.jetBrainsMono(
+        //   color: date != null ? Colors.blue : Colors.grey,
+        //   fontWeight: FontWeight.bold,
+        // ),
       ),
     );
   }
@@ -301,17 +301,17 @@ class _StringValueState extends State<_StringValue> {
       },
       decoration: InputDecoration.collapsed(
         hintText: 'null',
-        hintStyle: GoogleFonts.jetBrainsMono(
-          color: Colors.grey,
-          fontWeight: FontWeight.bold,
-          fontSize: 14,
-        ),
+        // hintStyle: GoogleFonts.jetBrainsMono(
+        //   color: Colors.grey,
+        //   fontWeight: FontWeight.bold,
+        //   fontSize: 14,
+        // ),
       ),
-      style: GoogleFonts.jetBrainsMono(
-        color: Colors.green,
-        fontWeight: FontWeight.bold,
-        fontSize: 14,
-      ),
+      // style: GoogleFonts.jetBrainsMono(
+      //   color: Colors.green,
+      //   fontWeight: FontWeight.bold,
+      //   fontSize: 14,
+      // ),
     );
   }
 }

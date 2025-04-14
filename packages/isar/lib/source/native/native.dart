@@ -81,7 +81,7 @@ class IsarCorePlatformImpl implements IsarCorePlatform {
       if (ignoreCheckVersion == false) {
         // if (coreVersion != Isar.version && coreVersion != 'debug') {
         throw IsarNotReadyError(
-          'Incorrect Isar Core version: Required ${Isar.version} found '
+          'Incorrect Isar Core version: Required ${Isar.currentVersion} found '
           '$coreVersion. Make sure to use the latest isar_flutter_libs. If you '
           'have a Dart only project, make sure that old Isar Core binaries are '
           'deleted.',

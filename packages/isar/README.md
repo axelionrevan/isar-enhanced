@@ -2,8 +2,8 @@
 
 I improved some things that I think are important,
 
-1. Web persistance
-2. Isar Inspector Cross Platforrm Local
+1. Web persistance data + Web Offline So you dont need download isar.wasm from website now isar.wasm web is save in package isar_flutter_libs  + (Web Wasm Support)
+2. Isar Inspector Cross Platform (for support low speed internet connection or for those who have trust issues)
 
 Tested
 
@@ -21,8 +21,6 @@ so I only implement what I think is important, because if I open source everythi
 and my account is also gone so this is the last update.
 
 Sorry can only contribute here
-
-
 
 <p align="center">
   <a href="https://isar.dev">

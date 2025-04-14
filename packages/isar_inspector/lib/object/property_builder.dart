@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+// import 'package:google_fonts/google_fonts.dart';
 
 class PropertyBuilder extends StatefulWidget {
   const PropertyBuilder({
@@ -64,12 +64,12 @@ class _PropertyBuilderState extends State<PropertyBuilder> {
                   message: widget.type,
                   child: Text(
                     '${widget.property}:',
-                    style: GoogleFonts.jetBrainsMono(
-                      fontWeight: widget.bold ? FontWeight.w800 : null,
-                      color: theme.colorScheme.onPrimaryContainer,
-                      decoration:
-                          widget.underline ? TextDecoration.underline : null,
-                    ),
+                    // style: context.jetBrainsMono(
+                    //   fontWeight: widget.bold ? FontWeight.w800 : null,
+                    //   color: theme.colorScheme.onPrimaryContainer,
+                    //   decoration:
+                    //       widget.underline ? TextDecoration.underline : null,
+                    // ),
                   ),
                 ),
                 const SizedBox(width: 8),

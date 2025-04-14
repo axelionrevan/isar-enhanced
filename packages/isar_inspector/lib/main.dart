@@ -1,97 +1,274 @@
+// ignore_for_file: empty_catches
+
+import 'dart:math';
+
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import 'package:isar_inspector/connection_screen.dart';
 
 void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(
-    DarkMode(
-      notifier: DarkModeNotifier(),
-      child: const App(),
-    ),
+    IsarInspectorApp(),
   );
 }
 
-final _router = GoRouter(
-  routes: <GoRoute>[
-    GoRoute(
-      path: '/',
-      builder: (BuildContext context, GoRouterState state) {
-        return const Material(
-          child: Center(
-            child: Text(
-              'Welcome to the Isar Inspector!\nPlease open the link '
-              'displayed when running the debug version of an Isar app.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 18),
-            ),
-          ),
-        );
-      },
-    ),
-    GoRoute(
-      path: '/:port/:secret',
-      builder: (BuildContext context, GoRouterState state) {
-        return GestureDetector(
-          onTap: () {
-            FocusScope.of(context).requestFocus(FocusNode());
-          },
-          child: Scaffold(
-            body: Material(
-              child: ConnectionScreen(
-                port: state.pathParameters['port']!,
-                secret: state.pathParameters['secret']!,
-              ),
-            ),
-          ),
-        );
-      },
-    ),
-  ],
-);
+class IsarInspectorThemeModeController extends ChangeNotifier {
+  final ThemeData themeDataDark = ThemeData.dark();
+  final ThemeData themeDataLight = ThemeData.light();
 
-class App extends StatelessWidget {
-  const App({super.key});
+  ThemeMode _themeMode = ThemeMode.dark;
+
+  set themeMode(ThemeMode themeMode) {
+    if (_themeMode != themeMode) {
+      _themeMode = themeMode;
+      notifyListeners();
+    }
+    return;
+  }
+
+  ThemeMode get themeMode => _themeMode;
+
+  void toggle() {
+    if (themeMode == ThemeMode.dark) {
+      themeMode = ThemeMode.light;
+    } else if (themeMode == ThemeMode.light) {
+      themeMode = ThemeMode.dark;
+    } else {
+      themeMode = Random().nextBool() ? ThemeMode.light : ThemeMode.dark;
+    }
+    return;
+  }
+
+  Color get colorIndicator {
+    if (themeMode == ThemeMode.dark) {
+      return Colors.white;
+    }
+    return Colors.black;
+  }
+
+  Color get colorSplash {
+    if (themeMode == ThemeMode.dark) {
+      return Colors.blue;
+    }
+    return Colors.blue;
+  }
+
+  Color get colorUnfocused {
+    if (themeMode == ThemeMode.dark) {
+      return Colors.grey;
+    }
+    return Colors.grey;
+  }
+}
+
+class IsarInspectorApp extends StatelessWidget {
+  const IsarInspectorApp({super.key});
+
+  static final IsarInspectorThemeModeController inspectorThemeModeController = IsarInspectorThemeModeController();
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      title: 'Isar Inspector',
-      routeInformationProvider: _router.routeInformationProvider,
-      routeInformationParser: _router.routeInformationParser,
-      routerDelegate: _router.routerDelegate,
-      theme: ThemeData.from(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF9FC9FF),
-          brightness: DarkMode.of(context).darkMode
-              ? Brightness.dark
-              : Brightness.light,
-        ),
-        useMaterial3: true,
-      ),
+    return ListenableBuilder(
+      listenable: IsarInspectorApp.inspectorThemeModeController,
+      builder: (context, child) {
+        return MaterialApp(
+          debugShowMaterialGrid: false,
+          debugShowCheckedModeBanner: false,
+          theme: IsarInspectorApp.inspectorThemeModeController.themeDataLight,
+          darkTheme: IsarInspectorApp.inspectorThemeModeController.themeDataDark,
+          themeMode: IsarInspectorApp.inspectorThemeModeController.themeMode,
+          home: IsarInspectorAppMain(),
+        );
+      },
     );
   }
 }
 
-class DarkMode extends InheritedNotifier<DarkModeNotifier> {
-  const DarkMode({
-    required super.child,
-    super.key,
-    super.notifier,
-  });
+class IsarInspectorAppMain extends StatefulWidget {
+  const IsarInspectorAppMain({super.key});
 
-  static DarkModeNotifier of(BuildContext context) {
-    return context.dependOnInheritedWidgetOfExactType<DarkMode>()!.notifier!;
-  }
+  @override
+  State<IsarInspectorAppMain> createState() => _IsarInspectorAppMainState();
 }
 
-class DarkModeNotifier extends ChangeNotifier {
-  var _darkMode = true;
+class _IsarInspectorAppMainState extends State<IsarInspectorAppMain> {
+  final TextEditingController textEditingController = TextEditingController();
 
-  bool get darkMode => _darkMode;
+  @override
+  void initState() {
+    super.initState();
+  }
 
-  void toggle() {
-    _darkMode = !_darkMode;
-    notifyListeners();
+  @override
+  Widget build(BuildContext context) {
+    final MediaQueryData mediaQueryData = MediaQuery.of(context);
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          "Isar Enhanced Inspector",
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+      ),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          setState(() {});
+        },
+        child: SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: mediaQueryData.size.height,
+              minWidth: mediaQueryData.size.width,
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Padding(
+                  padding: EdgeInsets.all(10),
+                  child: textFormFieldWidget(),
+                ),
+                Container(
+                  width: mediaQueryData.size.width,
+                  margin: EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      width: 0.5,
+                      color: IsarInspectorApp.inspectorThemeModeController.colorIndicator,
+                    ),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: MaterialButton(
+                    splashColor: IsarInspectorApp.inspectorThemeModeController.colorSplash,
+                    onPressed: () {
+                      final String text = textEditingController.text.trim();
+                      if (text.isEmpty) {
+                        showDialog(
+                          context: context,
+                          useRootNavigator: false,
+                          builder: (context) {
+                            final MediaQueryData mediaQueryData = MediaQuery.of(context);
+                            final BorderRadius borderRadius = BorderRadius.circular(15);
+
+                            return ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minHeight: mediaQueryData.size.height,
+                                minWidth: mediaQueryData.size.width,
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Flexible(
+                                    child: Padding(
+                                      padding: EdgeInsets.all(10),
+                                      child: ClipRRect(
+                                        borderRadius: borderRadius,
+                                        child: Material(
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              borderRadius: borderRadius,
+                                              border: Border.all(
+                                                color: IsarInspectorApp.inspectorThemeModeController.colorUnfocused,
+                                              ),
+                                            ),
+                                            padding: EdgeInsets.all(5),
+                                            child: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Row(
+                                                  mainAxisAlignment: MainAxisAlignment.end,
+                                                  children: [
+                                                    IconButton(
+                                                      onPressed: () {
+                                                        Navigator.of(context).pop();
+                                                      },
+                                                      icon: Icon(
+                                                        Icons.close,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                Text(
+                                                  "Websocket Url",
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        );
+                        return;
+                      }
+                      Navigator.of(context).push(MaterialPageRoute(
+                        builder: (context) {
+                          return Material(
+                            child: ConnectionScreen(
+                              websocketUri: Uri.parse(
+                                text,
+                              ),
+                            ),
+                          );
+                        },
+                      ));
+                    },
+                    child: Padding(
+                      padding: EdgeInsets.all(10),
+                      child: Text(
+                        "Continue",
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget textFormFieldWidget() {
+    final OutlineInputBorder outlineInputBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: BorderSide(
+        width: 0.5,
+        color: IsarInspectorApp.inspectorThemeModeController.colorUnfocused,
+      ),
+    );
+    return TextFormField(
+      controller: textEditingController,
+      decoration: InputDecoration(
+        labelText: "Websocket Url",
+        hintText: 'ws://{ip_address}:{port}/{secret}=/ws',
+        border: outlineInputBorder,
+        errorBorder: outlineInputBorder,
+        enabledBorder: outlineInputBorder,
+        suffix: IconButton(
+          onPressed: () {
+            textEditingController.clear();
+            setState(() {});
+          },
+          icon: Icon(
+            Icons.delete,
+            color: IsarInspectorApp.inspectorThemeModeController.colorIndicator,
+          ),
+        ),
+        focusedBorder: outlineInputBorder.copyWith(
+          borderRadius: BorderRadius.circular(15),
+          borderSide: BorderSide(
+            width: 1.0,
+            color: IsarInspectorApp.inspectorThemeModeController.colorIndicator,
+          ),
+        ),
+        disabledBorder: outlineInputBorder,
+        focusedErrorBorder: outlineInputBorder,
+      ),
+    );
   }
 }

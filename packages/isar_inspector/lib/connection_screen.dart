@@ -6,14 +6,11 @@ import 'package:isar_inspector/connected_layout.dart';
 import 'package:isar_inspector/error_screen.dart';
 
 class ConnectionScreen extends StatefulWidget {
+  final Uri websocketUri;
   const ConnectionScreen({
-    required this.port,
-    required this.secret,
+    required this.websocketUri,
     super.key,
   });
-
-  final String port;
-  final String secret;
 
   @override
   State<ConnectionScreen> createState() => _ConnectionPageState();
@@ -24,14 +21,14 @@ class _ConnectionPageState extends State<ConnectionScreen> {
 
   @override
   void initState() {
-    clientFuture = ConnectClient.connect(widget.port, widget.secret);
+    clientFuture = ConnectClient.connect(websocketUri: widget.websocketUri);
     super.initState();
   }
 
   @override
   void didUpdateWidget(covariant ConnectionScreen oldWidget) {
-    if (oldWidget.port != widget.port || oldWidget.secret != widget.secret) {
-      clientFuture = ConnectClient.connect(widget.port, widget.secret);
+    if (oldWidget.websocketUri != widget.websocketUri) {
+      clientFuture = ConnectClient.connect(websocketUri: widget.websocketUri);
     }
     super.didUpdateWidget(oldWidget);
   }

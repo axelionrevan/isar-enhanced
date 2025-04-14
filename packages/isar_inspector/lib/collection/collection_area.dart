@@ -2,10 +2,11 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:html';
+// import 'dart:html';
 import 'dart:math';
 
-import 'package:clickup_fading_scroll/clickup_fading_scroll.dart';
+// import 'package:clickup_fading_scroll/clickup_fading_scroll.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:isar/isar.dart';
@@ -95,37 +96,32 @@ class _CollectionAreaState extends State<CollectionArea> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Expanded(
-          child: FadingScroll(
+          child: CustomScrollView(
             controller: controller,
-            builder: (context, controller) {
-              return CustomScrollView(
-                controller: controller,
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: QueryGroup(
-                      key: Key('${widget.schema.name}-filter'),
-                      schema: widget.schema,
-                      group: filter,
-                      level: 0,
-                      onChanged: (group) {
-                        setState(() {
-                          filter = group;
-                        });
-                        _runQuery();
-                      },
-                    ),
-                  ),
-                  ObjectsListSliver(
-                    instance: widget.instance,
-                    collection: widget.collection,
-                    schemas: widget.schemas,
-                    objects: objects,
-                    onUpdate: _onUpdate,
-                    onDelete: _onDelete,
-                  ),
-                ],
-              );
-            },
+            slivers: [
+              SliverToBoxAdapter(
+                child: QueryGroup(
+                  key: Key('${widget.schema.name}-filter'),
+                  schema: widget.schema,
+                  group: filter,
+                  level: 0,
+                  onChanged: (group) {
+                    setState(() {
+                      filter = group;
+                    });
+                    _runQuery();
+                  },
+                ),
+              ),
+              ObjectsListSliver(
+                instance: widget.instance,
+                collection: widget.collection,
+                schemas: widget.schemas,
+                objects: objects,
+                onUpdate: _onUpdate,
+                onDelete: _onDelete,
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 20),
@@ -303,15 +299,17 @@ class _CollectionAreaState extends State<CollectionArea> {
     );
     final data = await widget.client.exportJson(query);
     try {
-      final base64 = base64Encode(utf8.encode(jsonEncode(data)));
-      final anchor =
-          AnchorElement(href: 'data:application/octet-stream;base64,$base64')
-            ..target = 'blank'
-            ..download = '${widget.collection}.json';
+      // final base64 = base64Encode(utf8.encode(jsonEncode(data)));
+      await FilePicker.platform.saveFile(
+        bytes: utf8.encode(jsonEncode(data)),
+      );
+      // final anchor = AnchorElement(href: 'data:application/octet-stream;base64,$base64')
+      //   ..target = 'blank'
+      //   ..download = '${widget.collection}.json';
 
-      document.body!.append(anchor);
-      anchor.click();
-      anchor.remove();
+      // document.body!.append(anchor);
+      // anchor.click();
+      // anchor.remove();
     } catch (_) {}
   }
 }

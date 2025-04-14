@@ -5,14 +5,20 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:developer';
+import 'dart:io' show InternetAddressType, NetworkInterface;
 
 import 'package:isar/package/dart_utils/dart_utils.dart';
 import 'package:isar/source/isar_connect_api.dart';
 import 'package:isar/source/native/native.dart'
-    if (dart.library.js) 'package:isar/source/web/web.dart';
+    if (dart.library.html) 'package:isar/source/web/web.dart'
+    if (dart.library.js) 'package:isar/source/web/web.dart'
+    if (dart.library.js_interop) 'package:isar/source/web/web.dart';
 import 'package:meta/meta.dart';
 import 'package:meta/meta_meta.dart';
 import 'package:pub_semver/pub_semver.dart';
+import "package:path/path.dart"as path;
+
+import 'package/dart_database/dart_database.dart';
 
 part 'source/annotations/collection.dart';
 part 'source/annotations/embedded.dart';

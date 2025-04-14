@@ -2,11 +2,28 @@ part of '../isar.dart';
 
 /// The Isar storage engine.
 enum IsarEngine {
+  unknown,
+
   /// The native Isar storage engine.
   isar,
 
   /// The SQLite storage engine.
-  sqlite
+  sqlite;
+
+  const IsarEngine();
+
+  static IsarEngine get auto {
+    if (IsarCore.kIsWeb) {
+      return IsarEngine.sqlite;
+    }
+    return IsarEngine.isar;
+  }
+}
+
+extension IsarExtension on Isar {
+  String getKeyDirectoryName() {
+    return path.join(directory, name);
+  }
 }
 
 /// An Isar database instance.
@@ -19,10 +36,7 @@ abstract class Isar {
   static const int defaultMaxSizeMiB = 128;
 
   /// The current Isar version.
-  static const String version = '0.0.0-placeholder';
-
   static Version packageVersion = Version.parse('0.0.0-placeholder');
-
   static Version currentVersion = Version.parse('2.0.0-placeholder');
 
   /// Use this value for the `directory` parameter to create an in-memory

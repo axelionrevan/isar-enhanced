@@ -4,11 +4,11 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:isar/isar.dart';
-import 'package:isar/src/isar_connect_api.dart';
+import 'package:isar/source/isar_connect_api.dart';
 import 'package:vm_service/vm_service.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
-export 'package:isar/src/isar_connect_api.dart';
+export 'package:isar/source/isar_connect_api.dart';
 
 class ConnectClient {
   ConnectClient(this.vmService, this.isolateId);
@@ -26,13 +26,18 @@ class ConnectClient {
   final _queryChangedController = StreamController<void>.broadcast();
 
   Stream<void> get instancesChanged => _instancesChangedController.stream;
-  Stream<void> get collectionInfoChanged =>
-      _collectionInfoChangedController.stream;
+  Stream<void> get collectionInfoChanged => _collectionInfoChangedController.stream;
   Stream<void> get queryChanged => _queryChangedController.stream;
 
-  static Future<ConnectClient> connect(String port, String secret) async {
-    final wsUrl = Uri.parse('ws://127.0.0.1:$port/$secret=/ws');
-    final channel = WebSocketChannel.connect(wsUrl);
+  /// final wsUrl = Uri.parse(
+  ///   'ws://127.0.0.1:$port/$secret=/ws',
+  /// );
+  static Future<ConnectClient> connect({
+    required final Uri websocketUri, 
+  }) async {
+    final channel = WebSocketChannel.connect(
+      websocketUri,
+    );
 
     // ignore: avoid_print
     final stream = channel.stream.handleError(print);

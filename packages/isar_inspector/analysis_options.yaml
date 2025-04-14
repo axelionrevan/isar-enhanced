@@ -1,5 +1,4 @@
 include: package:flutter_lints/flutter.yaml
-
 analyzer:
   errors:
     cascade_invocations: ignore
@@ -8,3 +7,15 @@ analyzer:
     public_member_api_docs: ignore
     use_string_buffers: ignore
     use_string_in_part_of_directives: ignore
+    unnecessary_brace_in_string_interps: ignore
+    unnecessary_string_interpolations: ignore
+    todo: ignore
+  exclude:
+    - test
+    - dev
+    - templates
+formatter:
+  page_width: 9999999999
+linter:
+  rules:
+    - always_declare_return_types

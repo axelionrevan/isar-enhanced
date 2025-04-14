@@ -62,39 +62,98 @@ class _IsarImpl extends Isar {
       ...schemas,
       ...schemas.expand((e) => e.embeddedSchemas ?? <IsarGeneratedSchema>[]),
     }.toList();
-    final schemaJson =
-        jsonEncode(allSchemas.map((e) => e.schema.toJson()).toList());
+    final schemaJson = jsonEncode(allSchemas.map((e) => e.schema.toJson()).toList());
 
     final namePtr = IsarCore._toNativeString(name);
-    final directoryPtr = IsarCore._toNativeString(directory);
+    final directoryPtr = IsarCore._toNativeString(() {
+      if (IsarCore.kIsWeb) {
+        return Isar.sqliteInMemory;
+      }
+      return directory;
+    }());
     final schemaPtr = IsarCore._toNativeString(schemaJson);
-    final encryptionKeyPtr = encryptionKey != null
-        ? IsarCore._toNativeString(encryptionKey)
-        : nullptr;
+    final encryptionKeyPtr = encryptionKey != null ? IsarCore._toNativeString(encryptionKey) : nullptr;
 
     final isarPtrPtr = IsarCore.ptrPtr.cast<Pointer<CIsarInstance>>();
-    IsarCore.b
-        .isar_open_instance(
-          isarPtrPtr,
-          instanceId,
-          namePtr,
-          directoryPtr,
-          engine == IsarEngine.sqlite,
-          schemaPtr,
-          maxSizeMiB,
-          encryptionKeyPtr,
-          compactOnLaunch != null ? compactOnLaunch.minFileSize ?? 0 : -1,
-          compactOnLaunch != null ? compactOnLaunch.minBytes ?? 0 : -1,
-          compactOnLaunch != null ? compactOnLaunch.minRatio ?? 0 : double.nan,
-        )
-        .checkNoError();
-
+    final isarOpenInstance = IsarCore.b.isar_open_instance(
+      isarPtrPtr,
+      instanceId,
+      namePtr,
+      directoryPtr,
+      engine == IsarEngine.sqlite,
+      schemaPtr,
+      maxSizeMiB,
+      encryptionKeyPtr,
+      compactOnLaunch != null ? compactOnLaunch.minFileSize ?? 0 : -1,
+      compactOnLaunch != null ? compactOnLaunch.minBytes ?? 0 : -1,
+      compactOnLaunch != null ? compactOnLaunch.minRatio ?? 0 : double.nan,
+    );
+    try {
+      isarOpenInstance.checkNoError();
+    } catch (e) {
+      if (IsarCore.kIsWeb == false) {
+        rethrow;
+      } else {
+        if (engine == IsarEngine.isar) {
+          rethrow;
+        }
+      }
+    }
     final isar = _IsarImpl._(instanceId, isarPtrPtr.ptrValue, allSchemas);
     if (workerCount != null) {
       isar._initializeIsolatePool(workerCount);
     }
+    isar._dartImplementTemporaryWeb();
 
     return isar;
+  }
+
+  /// implement web because
+  /// temporary
+  ///
+  /// because my version isar has used for many company
+  /// so only implement via dart not rust
+  ///
+  /// relax this code only run in web
+  bool _isInit = false;
+  void _dartImplementTemporaryWeb() {
+    if (IsarCore.kIsWeb) {
+      if (_isInit) {
+        return;
+      }
+      _isInit = true;
+      final Isar isar = (this as Isar);
+
+      isar.write((isar) {
+        final schemas = isar.schemas;
+        for (var i = 0; i < schemas.length; i++) {
+          try {
+            final collection = isar.collectionByIndex(i);
+
+            final DartDatabase dartDatabase = DartDatabase(
+              pathToFile: path.join(
+                isar.getKeyDirectoryName(),
+                collection.schema.name,
+              ),
+            );
+            final List dataValue = () {
+              try {
+                return json.decode(dartDatabase.readSync());
+              } catch (e) {
+                return [];
+              }
+            }();
+
+            if (dataValue.isNotEmpty) {
+              collection.importJson(dataValue.cast());
+            }
+
+            // ignore: empty_catches
+          } catch (e) {}
+        }
+      });
+    }
+    return;
   }
 
   factory _IsarImpl.get({
@@ -250,8 +309,7 @@ class _IsarImpl extends Isar {
   }();
 
   @override
-  late final List<IsarSchema> schemas =
-      generatedSchemas.map((e) => e.schema).toList();
+  late final List<IsarSchema> schemas = generatedSchemas.map((e) => e.schema).toList();
 
   @override
   bool get isOpen => _ptr != null;
@@ -408,8 +466,7 @@ class _IsarImpl extends Isar {
   @override
   void verify() {
     getTxn(
-      (isarPtr, txnPtr) =>
-          IsarCore.b.isar_verify(isarPtr, txnPtr).checkNoError(),
+      (isarPtr, txnPtr) => IsarCore.b.isar_verify(isarPtr, txnPtr).checkNoError(),
     );
   }
 }

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-
+ 
 class InstanceSelector extends StatefulWidget {
   const InstanceSelector({
     required this.instances,
@@ -168,7 +167,7 @@ class SelectedInstanceButton extends StatelessWidget {
             child: Row(
               children: [
                 Icon(
-                  FontAwesomeIcons.database,
+                  Icons.storage,
                   size: 25,
                   color: theme.colorScheme.onSecondaryContainer,
                 ),
@@ -199,11 +198,11 @@ class SelectedInstanceButton extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        FontAwesomeIcons.chevronUp,
+                        Icons.move_up,
                         size: 12,
                       ),
                       Icon(
-                        FontAwesomeIcons.chevronDown,
+                        Icons.move_down,
                         size: 12,
                       ),
                     ],
