@@ -1,9 +1,9 @@
 name: Isar release
 
 on:
-  push:
-    tags:
-      - "*"
+  # push:
+  #   tags:
+  #     - "*"
 
 jobs:
   build_binaries:
