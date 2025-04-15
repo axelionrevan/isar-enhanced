@@ -2,7 +2,9 @@
 
 ## Demo
 
-[](/demo/simple-example-cli.webm)
+
+- [Example Demo Cli](/demo/simple-example-cli.webm)
+- [Example Demo Gui](/demo/simple-example-gui.webm)
 
 
 I improved some things that I think are important,
@@ -22,9 +24,14 @@ I am not fully open source isar remade because the company I work for will use t
 
 so I only implement what I think is important, because if I open source everything I can't, and there are also many modifications that have been replaced from the original source
 
+original: https://github.com/isar/isar
+
+if you want me to update this repo
+
 Support: Me  https://opencollective.com/isar-enhanced
 
 ---
+
 
 <p align="center">
   <a href="https://isar.dev">
