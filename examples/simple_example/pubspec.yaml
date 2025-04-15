@@ -12,9 +12,7 @@ dependencies:
     path: '../../packages/isar'
   isar_flutter_libs:
     path: '../../packages/isar_flutter_libs'
-  packagex:
-    hosted: 'https://package-repository-general-developer.vercel.app'
-    version: '^0.0.0'
+    
   path: '^1.9.0'
   path_provider: '^2.1.5'
 dev_dependencies:
@@ -29,9 +27,9 @@ project:
   is_use_direct_package: true
   is_private: true
   developers:
-    - username: ''
+    - username: 'axelionrevan'
       note: ''
       social_medias:
-        - 'https://github.com'
+        - 'https://github.com/axelionrevan'
 funding: 
   - https://github.com/axelionrevan

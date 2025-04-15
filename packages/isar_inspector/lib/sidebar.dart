@@ -6,6 +6,15 @@ import 'package:isar_inspector/instance_selector.dart';
 import 'package:isar_inspector/main.dart';
 
 class Sidebar extends StatelessWidget {
+  final List<String> instances;
+  final String? selectedInstance;
+  final void Function(String instance) onInstanceSelected;
+
+  final List<IsarSchema> schemas;
+  final Map<String, ConnectCollectionInfoPayload?> collectionInfo;
+  final String? selectedCollection;
+  final void Function(String collection) onCollectionSelected;
+
   const Sidebar({
     required this.instances,
     required this.selectedInstance,
@@ -16,15 +25,6 @@ class Sidebar extends StatelessWidget {
     required this.onCollectionSelected,
     super.key,
   });
-
-  final List<String> instances;
-  final String? selectedInstance;
-  final void Function(String instance) onInstanceSelected;
-
-  final List<IsarSchema> schemas;
-  final Map<String, ConnectCollectionInfoPayload?> collectionInfo;
-  final String? selectedCollection;
-  final void Function(String collection) onCollectionSelected;
 
   @override
   Widget build(BuildContext context) {

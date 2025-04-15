@@ -37,7 +37,7 @@ abstract class Isar {
 
   /// The current Isar version.
   static Version packageVersion = Version.parse('0.0.0-placeholder');
-  static Version currentVersion = Version.parse('2.0.0-placeholder');
+  static Version currentVersion = Version.parse('5.0.0-placeholder');
 
   /// Use this value for the `directory` parameter to create an in-memory
   /// database.

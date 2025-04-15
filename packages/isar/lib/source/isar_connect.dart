@@ -64,7 +64,7 @@ abstract class _IsarConnect {
         path = path.substring(0, path.length - 1);
       }
       // final url = ' https://inspect.isar.dev/${Isar.version}/#/$port$path ';
-      final url = '  ws://127.0.0.1:${port}/${path}=/ws  ';
+      final url = '  ws://127.0.0.1:${port}${path}=/ws  ';
 
       String? ipNetworkLocal = await () async {
         final interfaces = await NetworkInterface.list(type: InternetAddressType.IPv4, includeLinkLocal: true);
@@ -103,7 +103,7 @@ abstract class _IsarConnect {
       print('╟${line('', '─')}╢');
       print('║$url║');
       if (ipNetworkLocal != null) {
-        print('║  ws://${ipNetworkLocal}:${port}/${path}=/ws ╢');
+        print('║  ws://${ipNetworkLocal}:${port}${path}=/ws ╢');
       }
       print('╚${line('', '═')}╝');
     });

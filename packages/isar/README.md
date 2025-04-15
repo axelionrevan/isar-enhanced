@@ -2,9 +2,10 @@
 
 ## Demo
 
+![](/demo/ss.png)
 
 - [Example Demo Cli](/demo/simple-example-cli.webm)
-- [Example Demo Gui](/demo/simple-example-gui.webm)
+- [Example Demo Gui Or Gui](/demo/simple-example-web.webm)
 
 
 I improved some things that I think are important,
@@ -29,6 +30,8 @@ original: https://github.com/isar/isar
 if you want me to update this repo
 
 Support: Me  https://opencollective.com/isar-enhanced
+
+Update By: https://github.com/axelionrevan/isar-enhanced.git
 
 ---
 

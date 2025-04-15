@@ -38,13 +38,31 @@ class _ConnectionPageState extends State<ConnectionScreen> {
     return FutureBuilder<ConnectClient>(
       future: clientFuture,
       builder: (context, snapshot) {
-        if (snapshot.hasData) {
-          return _InstancesLoader(client: snapshot.data!);
-        } else if (snapshot.hasError) {
-          return const ErrorScreen();
-        } else {
+        final Widget child = () {
+          if (snapshot.hasData) {
+            return _InstancesLoader(client: snapshot.data!);
+          } else if (snapshot.hasError) {
+            return const ErrorScreen();
+          }
           return const Loading();
+        }();
+        if (child is _InstancesLoader) {
+          return child;
         }
+        final MediaQueryData mediaQueryData = MediaQuery.of(context);
+
+        return Scaffold(
+          appBar: AppBar(),
+          body: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: mediaQueryData.size.height,
+                minWidth: mediaQueryData.size.width,
+              ),
+              child: child,
+            ),
+          ),
+        );
       },
     );
   }
@@ -91,16 +109,35 @@ class _InstancesLoaderState extends State<_InstancesLoader> {
     return FutureBuilder<List<String>>(
       future: instancesFuture,
       builder: (context, snapshot) {
-        if (snapshot.hasData) {
-          return ConnectedLayout(
-            client: widget.client,
-            instances: snapshot.data!,
-          );
-        } else if (snapshot.hasError) {
-          return const ErrorScreen();
-        } else {
+      final child = ()  {
+          if (snapshot.hasData) {
+            return ConnectedLayout(
+              client: widget.client,
+              instances: snapshot.data!,
+            );
+          } else if (snapshot.hasError) {
+            return const ErrorScreen();
+          }
           return const Loading();
         }
+        (); 
+        if (child is ConnectedLayout) {
+          return child;
+        }
+        final MediaQueryData mediaQueryData = MediaQuery.of(context);
+
+        return Scaffold(
+          appBar: AppBar(),
+          body: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: mediaQueryData.size.height,
+                minWidth: mediaQueryData.size.width,
+              ),
+              child: child,
+            ),
+          ),
+        );
       },
     );
   }

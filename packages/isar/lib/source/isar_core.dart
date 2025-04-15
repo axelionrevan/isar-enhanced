@@ -252,6 +252,7 @@ typedef IsolatePoolSetup = FutureOr<dynamic> Function(
 );
 
 abstract class IsarCorePlatform {
+  
   FutureOr<IsarCoreBindings> initializeBindings({
     required String? library,
     required bool ignoreCheckVersion,

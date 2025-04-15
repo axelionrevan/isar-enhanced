@@ -10,17 +10,7 @@ class ErrorScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final MediaQueryData mediaQueryData = MediaQuery.of(context);
-
-    return Scaffold(
-      appBar: AppBar(),
-      body: SingleChildScrollView(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            minHeight: mediaQueryData.size.height,
-            minWidth: mediaQueryData.size.width,
-          ),
-          child: Column(
+   return Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Text(
@@ -35,9 +25,7 @@ class ErrorScreen extends StatelessWidget {
                 child: const Text('Retry Connection'),
               ),
             ],
-          ),
-        ),
-      ),
+          
     );
   }
 }
