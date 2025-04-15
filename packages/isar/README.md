@@ -1,5 +1,10 @@
 # Isar Enhanced
 
+## Demo
+
+[](/demo/simple-example-cli.webm)
+
+
 I improved some things that I think are important,
 
 1. Web persistance data + Web Offline So you dont need download isar.wasm from website now isar.wasm web is save in package isar_flutter_libs  + (Web Wasm Support)
@@ -17,10 +22,9 @@ I am not fully open source isar remade because the company I work for will use t
 
 so I only implement what I think is important, because if I open source everything I can't, and there are also many modifications that have been replaced from the original source
 
+Support: Me  https://opencollective.com/isar-enhanced
 
-and my account is also gone so this is the last update.
-
-Sorry can only contribute here
+---
 
 <p align="center">
   <a href="https://isar.dev">

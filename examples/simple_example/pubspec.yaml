@@ -1,0 +1,37 @@
+name: 'simple_example'
+description: 'A new Flutter project.'
+publish_to: 'none'
+version: '1.0.0+1'
+environment:
+  sdk: '>=3.6.0 <4.0.0'
+dependencies:
+  cupertino_icons: '^1.0.8'
+  flutter:
+    sdk: 'flutter'
+  isar:
+    path: '../../packages/isar'
+  isar_flutter_libs:
+    path: '../../packages/isar_flutter_libs'
+  packagex:
+    hosted: 'https://package-repository-general-developer.vercel.app'
+    version: '^0.0.0'
+  path: '^1.9.0'
+  path_provider: '^2.1.5'
+dev_dependencies:
+  build_runner: 'any'
+  flutter_lints: '^5.0.0'
+  flutter_test:
+    sdk: 'flutter'
+flutter:
+  uses-material-design: true
+project:
+  type: 'opensource'
+  is_use_direct_package: true
+  is_private: true
+  developers:
+    - username: ''
+      note: ''
+      social_medias:
+        - 'https://github.com'
+funding: 
+  - https://github.com/axelionrevan

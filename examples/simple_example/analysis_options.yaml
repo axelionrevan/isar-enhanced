@@ -1,16 +1,16 @@
-include: package:lints/recommended.yaml
+include: package:flutter_lints/flutter.yaml
+linter:
+  rules:
+    
+    - public_member_api_docs
+formatter:
+  page_width: 9999999999
 analyzer:
   errors:
     unnecessary_brace_in_string_interps: ignore
-    todo: ignore
     unnecessary_string_interpolations: ignore
+    todo: ignore
   exclude:
-    - dev/
-    - test/
     - test
     - dev
     - templates
-linter:
-  rules:
-    - require_trailing_commas
-    

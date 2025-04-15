@@ -18,4 +18,4 @@ formatter:
   page_width: 9999999999
 linter:
   rules:
-    - always_declare_return_types
+    
