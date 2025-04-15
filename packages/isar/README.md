@@ -29,7 +29,7 @@ original: https://github.com/isar/isar
 
 if you want me to update this repo
 
-Support: Me  https://opencollective.com/isar-enhanced
+Support: Me paypal.me/axelionrevan or https://opencollective.com/isar-enhanced 
 
 Update By: https://github.com/axelionrevan/isar-enhanced.git
 
